@@ -1,1 +1,1 @@
-git+https://github.com/USERNAME/store-tools.git
+git+https://github.com/USERNAME/store-tools.git@master#egg=store-tools

@@ -79,3 +79,12 @@ functions:
       #     path: /user
       #     method: get
       #     cors: ${self:custom.cors}
+
+    ConfirmUsers:
+    name: ConfirmUsers
+    handler: handlers/UsersHandler.confirm_user
+    events:
+      - http:
+          path: /confirm_user
+          method: post
+          cors: ${self:custom.cors}
