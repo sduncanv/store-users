@@ -70,3 +70,6 @@ requirements.txt
 
 # VS Code
 .vscode/
+
+__pycache__/
+**/__pycache__/

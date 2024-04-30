@@ -1,14 +1,81 @@
 service: store-users
 frameworkVersion: '3'
 
+plugins:
+  - serverless-offline
+  # - serverless-python-requirements
+
+useDotenv: true
+
+package:
+  patterns:
+    - "!./**"
+    - "handlers/**"
+    - "Classes/**"
+    - "Models/**"
+
+custom:
+  globalTimeOut: 30
+
+  cors:
+    origin: "*"
+    headers:
+      - Content-Type
+      - X-Amz-Date
+      - Authorization
+      - X-Api-Key
+      - X-Amz-Security-Token
+      - X-Amz-User-Agent
+      - Access-Control-Allow-Headers
+      - Accept
+      - Accept-Language
+      - Content-Language
+      - Access-Control-Allow-Origin
+      - Access-Control-Allow-Methods
+      - Access-Control-Allow-Credentials
+
+  pythonRequirements:
+    fileName: requirements.txt
+    layer: true
+    slim: true
+    strip: false
+    slimPatternsAppendDefaults: false
+    slimPatterns:
+      - boto3/**
+      - botocore/**
+      - s3transfer/**
+      - urllib3/**
+      - mysql/vendor/**
+      - '*/.py[c|o]'
+      - '*/_pycache_'
+
 provider:
   name: aws
   runtime: python3.9
+  layers:
+    - Ref: PythonRequirementsLambdaLayer
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - cognito-idp:AdminSetUserPassword
+            - cognito-idp:AdminUpdateUserAttributes
+            - cognito-idp:GetUser
+          Resource: "*"
 
 functions:
-  hello:
-    handler: handler.hello
+  Users:
+    name: Users
+    handler: handlers/UsersHandler.users
     events:
-      - httpApi:
-          path: /
-          method: get
+      - http:
+          path: /user
+          method: post
+          cors: ${self:custom.cors}
+      # - http:
+      #     path: /user
+      #     method: get
+      #     cors: ${self:custom.cors}

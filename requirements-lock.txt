@@ -1,1 +1,1 @@
-git+https://github.com/USERNAME/repo-uno.git#egg=repo-uno
+git+https://github.com/USERNAME/store-tools.git
