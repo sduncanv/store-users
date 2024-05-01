@@ -1,6 +1,8 @@
 from Classes.Users import Users
+from Tools.Utils.Helpers import exception_decorator
 
 
+@exception_decorator
 def users(event, context):
 
     users_class = Users()
@@ -13,7 +15,8 @@ def users(event, context):
     return executed(event)
 
 
-def confirm_user(event, context):
+@exception_decorator
+def authenticate_user(event, context):
 
     users_class = Users()
 

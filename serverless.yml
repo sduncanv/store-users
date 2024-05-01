@@ -80,11 +80,11 @@ functions:
       #     method: get
       #     cors: ${self:custom.cors}
 
-    ConfirmUsers:
-    name: ConfirmUsers
-    handler: handlers/UsersHandler.confirm_user
+  AuthenticateUsers:
+    name: AuthenticateUsers
+    handler: handlers/UsersHandler.authenticate_user
     events:
       - http:
-          path: /confirm_user
+          path: /authenticate_user
           method: post
           cors: ${self:custom.cors}
