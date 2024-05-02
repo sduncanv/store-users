@@ -75,10 +75,14 @@ functions:
           path: /user
           method: post
           cors: ${self:custom.cors}
-      # - http:
-      #     path: /user
-      #     method: get
-      #     cors: ${self:custom.cors}
+      - http:
+          path: /user
+          method: get
+          cors: ${self:custom.cors}
+      - http:
+          path: /user
+          method: put
+          cors: ${self:custom.cors}
 
   AuthenticateUsers:
     name: AuthenticateUsers

@@ -8,7 +8,9 @@ def users(event, context):
     users_class = Users()
 
     methods = {
-        "POST": users_class.create_user
+        "POST": users_class.create_user,
+        "GET": users_class.get_user,
+        "PUT": users_class.update_user,
     }
 
     executed = methods.get(event['httpMethod'])
