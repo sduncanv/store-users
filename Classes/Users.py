@@ -9,9 +9,9 @@ from Tools.Utils.Helpers import get_input_data
 from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
-from Models.AuthenticatedUsers import AuthenticatedUsersModel
-from Models.Users import UserModel
 from Tools.Utils.QueryTools import get_model_columns
+from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
+from Users.Models.Users import UserModel
 
 
 class Users:
