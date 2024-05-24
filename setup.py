@@ -88,12 +88,10 @@ if __name__ == "__main__":
         ],
         package_dir={
             'Users.Classes': 'Classes',
-            'Users.Models': 'Models',
-            'Users.Database': 'Database',
-            'Users.Utils': 'Utils',
+            'Users.Models': 'Models'
         },
         packages=[
-            'Users.Classes', 'Users.Models', 'Users.Database', 'Users.Utils'
+            'Users.Classes', 'Users.Models'
         ],
         python_requires=">=3.8",
         install_requires=requirements
