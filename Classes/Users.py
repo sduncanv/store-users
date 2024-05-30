@@ -2,7 +2,6 @@ import os
 from sqlalchemy import select, insert, update
 from hashlib import sha256
 import json
-# import hashlib
 
 from Tools.Database.Conn import Database
 from Tools.Utils.Helpers import get_input_data
@@ -48,7 +47,6 @@ class Users:
         input_data.update({'client_id': self.client_id})
 
         result = self.cognito.create_user(input_data)
-        print(f'{result} --> 1')
 
         status_code = result['statusCode']
 
@@ -97,16 +95,14 @@ class Users:
 
         data.update({'client_id': self.client_id})
 
-        user_id = self.get_user_id(username)
+        user_id = self.get_user_id({'username': username})
 
         # if not user_id:
         #     raise CustomError(
         #         f'The specified username ({username}) does not exist.'
         #     )
 
-        print(f'{data} --> sasasasaasa')
         result = self.cognito.authenticate_user(data=data)
-        print(f'{result} --> 1')
 
         status_code = result['statusCode']
 
@@ -124,7 +120,7 @@ class Users:
             'statusCode': status_code, 'data': data
         }
 
-    def get_user_id(self, **kwargs):
+    def get_user_id(self, kwargs):
 
         conditions = {'active': 1}
 
@@ -144,19 +140,13 @@ class Users:
 
     def insert_authenticated_user(self, data):
 
-        print(f'{data} -----------')
-
         statement = insert(AuthenticatedUsersModel).values(
             user_id=data['user_id'],
             code=data['code'],
             is_authenticated=1
         )
-        print(f'{statement} ...')
 
         res = self.db.insert_statement(statement)
-
-        print(f'{res} ...')
-        print(type(res))
 
     def get_user(self, event):
 
@@ -205,7 +195,7 @@ class Users:
             UserModel, exclude_primary_key=True,
             get_attributes=True
         )
-        print(f'{model_columns} ---> model_columns')
+
         list_validation = []
 
         # keys_to_deleted = []
@@ -226,8 +216,6 @@ class Users:
         #         del input_data[key]
         # print(f'{input_data} ---> input_data')
 
-        print(f'{list_validation} ---> list_validation')
-
         is_valid = self.tools.validate_input_data(list_validation)
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
@@ -243,8 +231,6 @@ class Users:
 
         statement_result = self.db.update_statement(statement)
 
-        print(statement_result)
-
         if statement_result:
             status_code = 200
             data = 'The user was updated.'
@@ -255,6 +241,46 @@ class Users:
 
         return {'statusCode': status_code, 'data': data}
 
-    def delete_user(self, event):
+    def login(self, event):
 
-        pass
+        data = get_input_data(event)
+
+        username = data.get('username', '')
+        password = data.get('password', '')
+
+        values = [
+            self.tools.params('username', str, username),
+            self.tools.params('password', str, password)
+        ]
+
+        is_valid = self.tools.validate_input_data(values)
+        if not is_valid['is_valid']:
+            raise CustomError(is_valid['data'][0])
+
+        # client_cognito = boto3.client('cognito-idp')
+
+        # response = client_cognito.initiate_auth(
+        #     AuthFlow='USER_PASSWORD_AUTH',
+        #     AuthParameters={
+        #         'USERNAME': username,
+        #         'PASSWORD': password
+        #     },
+        #     ClientId='3f7engqga332prsh099an7g1tk'
+        # )
+
+        response = self.cognito.get_token_by_user({
+            'username': username,
+            'password': password,
+            'client_id': os.getenv('CLIENT_ID')
+        })
+
+        status_code = response['statusCode']
+
+        if status_code != 200:
+            raise CustomError(response['data'])
+
+        data = response['data']
+
+        return {
+            'statusCode': status_code, 'data': response
+        }

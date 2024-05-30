@@ -28,3 +28,16 @@ def authenticate_user(event, context):
 
     executed = methods.get(event['httpMethod'])
     return executed(event)
+
+
+@exception_decorator
+def login(event, context):
+
+    users_class = Users()
+
+    methods = {
+        "POST": users_class.login
+    }
+
+    executed = methods.get(event['httpMethod'])
+    return executed(event)
