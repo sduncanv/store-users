@@ -2,7 +2,7 @@ service: store-users
 frameworkVersion: '3'
 
 plugins:
-  - serverless-offline
+  # - serverless-offline
   # - serverless-python-requirements
 
 useDotenv: true
@@ -49,6 +49,25 @@ custom:
       - '*/.py[c|o]'
       - '*/_pycache_'
 
+  authorizerApp:
+    name: CognitoAuthorizerApp
+    type: COGNITO_USER_POOLS
+    authorizerId: 
+      Ref: ApiGatewayAuthorizer # Referencia al authorizer definido en resources
+
+resources:
+  Resources:
+    ApiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: CognitoAuthorizerApp
+        Type: COGNITO_USER_POOLS
+        IdentitySource: method.request.header.Authorization
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ProviderARNs:
+          - arn:aws:cognito-idp:us-east-1:797049640308:userpool/us-east-1_tQ9bXGlsg
+
 provider:
   name: aws
   runtime: python3.9
@@ -79,6 +98,7 @@ functions:
           path: /user
           method: get
           cors: ${self:custom.cors}
+          # authorizer: ${self:custom.authorizerApp}
       - http:
           path: /user
           method: put

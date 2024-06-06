@@ -9,8 +9,8 @@ from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
 from Tools.Utils.QueryTools import get_model_columns
-from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
-from Users.Models.Users import UserModel
+from Models.AuthenticatedUsers import AuthenticatedUsersModel
+from Models.Users import UserModel
 
 
 class Users:
@@ -53,7 +53,6 @@ class Users:
         if status_code == 200:
 
             password = sha256(bytes(str(password), "utf-8")).hexdigest()
-            # ew = hashlib.sha256(bytes(password, "utf-8")).hexdigest()
 
             statement = insert(UserModel).values(
                 username=username,
@@ -62,6 +61,7 @@ class Users:
                 name=name,
                 first_lastname=first_lastname
             )
+
             result_statement = self.db.insert_statement(statement)
 
             result_statement.update({"message": "User was created."})
@@ -73,9 +73,7 @@ class Users:
 
             raise CustomError(data)
 
-        return {
-            'statusCode': status_code, 'data': data
-        }
+        return {'statusCode': status_code, 'data': data}
 
     def authenticate_user(self, event) -> dict:
 
@@ -97,11 +95,6 @@ class Users:
 
         user_id = self.get_user_id({'username': username})
 
-        # if not user_id:
-        #     raise CustomError(
-        #         f'The specified username ({username}) does not exist.'
-        #     )
-
         result = self.cognito.authenticate_user(data=data)
 
         status_code = result['statusCode']
@@ -116,11 +109,9 @@ class Users:
         else:
             data = result['message']
 
-        return {
-            'statusCode': status_code, 'data': data
-        }
+        return {'statusCode': status_code, 'data': data}
 
-    def get_user_id(self, kwargs):
+    def get_user_id(self, kwargs: dict):
 
         conditions = {'active': 1}
 
@@ -146,18 +137,15 @@ class Users:
             is_authenticated=1
         )
 
-        res = self.db.insert_statement(statement)
+        self.db.insert_statement(statement)
 
     def get_user(self, event):
 
         input_data = get_input_data(event)
-
-        user_id = input_data.get('user_id', '')
-
         conditions = {'active': 1}
 
-        if user_id:
-            conditions.update({'user_id': user_id})
+        for key, value in input_data.items():
+            conditions.update({key: value})
 
         statement = select(
             *self.exclude_columns(UserModel, ['password'])
@@ -165,7 +153,11 @@ class Users:
 
         result_statement = self.db.select_statement(statement)
 
-        return {'statusCode': 200, 'data': result_statement}
+        status_code = 200
+        if not result_statement:
+            status_code = 404
+
+        return {'statusCode': status_code, 'data': result_statement}
 
     def exclude_columns(
         self, model, excluded: list, primary_key=False
@@ -198,11 +190,7 @@ class Users:
 
         list_validation = []
 
-        # keys_to_deleted = []
         for column, value in input_data.items():
-
-            # if column in ['user_id', 'active']:
-            #     keys_to_deleted.append(str(column))
 
             if column in model_columns.keys():
                 _type = model_columns[column]['type']
@@ -210,11 +198,6 @@ class Users:
                 list_validation.append(
                     self.tools.params(column, _type, value)
                 )
-
-        # for key in keys_to_deleted:
-        #     if key in input_data:
-        #         del input_data[key]
-        # print(f'{input_data} ---> input_data')
 
         is_valid = self.tools.validate_input_data(list_validation)
         if not is_valid['is_valid']:
@@ -254,19 +237,9 @@ class Users:
         ]
 
         is_valid = self.tools.validate_input_data(values)
+
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
-
-        # client_cognito = boto3.client('cognito-idp')
-
-        # response = client_cognito.initiate_auth(
-        #     AuthFlow='USER_PASSWORD_AUTH',
-        #     AuthParameters={
-        #         'USERNAME': username,
-        #         'PASSWORD': password
-        #     },
-        #     ClientId='3f7engqga332prsh099an7g1tk'
-        # )
 
         response = self.cognito.get_token_by_user({
             'username': username,
@@ -275,12 +248,9 @@ class Users:
         })
 
         status_code = response['statusCode']
+        data = response['data']
 
         if status_code != 200:
             raise CustomError(response['data'])
 
-        data = response['data']
-
-        return {
-            'statusCode': status_code, 'data': response
-        }
+        return {'statusCode': status_code, 'data': data}

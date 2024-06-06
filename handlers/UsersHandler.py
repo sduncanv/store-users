@@ -1,4 +1,4 @@
-from Users.Classes.Users import Users
+from Classes.Users import Users
 from Tools.Utils.Helpers import exception_decorator
 
 
