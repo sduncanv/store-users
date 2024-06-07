@@ -2,7 +2,7 @@ service: store-users
 frameworkVersion: '3'
 
 plugins:
-  # - serverless-offline
+  - serverless-offline
   - serverless-python-requirements
 
 useDotenv: true
@@ -50,10 +50,20 @@ custom:
       - '*/_pycache_'
 
 provider:
+
   name: aws
   runtime: python3.9
+  environment:
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_NAME}
+    DB_HOST: ${env:DB_HOST}
+    USER_POOL: ${env:USER_POOL}
+    CLIENT_ID: ${env:CLIENT_ID}
+
   layers:
     - Ref: PythonRequirementsLambdaLayer
+
   iam:
     role:
       statements:
@@ -74,15 +84,15 @@ functions:
       - http:
           path: /user
           method: post
-          # cors: ${self:custom.cors}
+          cors: ${self:custom.cors}
       - http:
           path: /user
           method: get
-          # cors: ${self:custom.cors}
+          cors: ${self:custom.cors}
       - http:
           path: /user
           method: put
-          # cors: ${self:custom.cors}
+          cors: ${self:custom.cors}
 
   AuthenticateUsers:
     name: AuthenticateUsers

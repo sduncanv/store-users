@@ -1,14 +1,13 @@
 import os
 from sqlalchemy import select, insert, update
 from hashlib import sha256
-import json
 
 from Tools.Database.Conn import Database
 from Tools.Utils.Helpers import get_input_data
 from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
-from Tools.Utils.QueryTools import get_model_columns
+from Tools.Utils.QueryTools import get_model_columns, exclude_columns
 from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
 from Users.Models.Users import UserModel
 
@@ -44,11 +43,17 @@ class Users:
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
 
-        input_data.update({'client_id': self.client_id})
+        # Validate if the username exist
+        user_exists = self.get_user_info({'username': username})
 
+        if user_exists['data']:
+            raise CustomError('El username ya está registrado.')
+
+        input_data.update({'client_id': self.client_id})
         result = self.cognito.create_user(input_data)
 
         status_code = result['statusCode']
+        print(f'{result} ----> result')
 
         if status_code == 200:
 
@@ -68,10 +73,7 @@ class Users:
             data = result_statement
 
         else:
-            data = result['body']
-            data = json.loads(data)['message']
-
-            raise CustomError(data)
+            raise CustomError(result['data'])
 
         return {'statusCode': status_code, 'data': data}
 
@@ -93,10 +95,14 @@ class Users:
 
         data.update({'client_id': self.client_id})
 
-        user_id = self.get_user_id({'username': username})
+        # Validate if the username exist
+        user_id = self.get_user_info({'username': username})
+        if not user_id:
+            raise CustomError('The specified user does not exist.')
 
         result = self.cognito.authenticate_user(data=data)
 
+        print(f'{result} ----> result')
         status_code = result['statusCode']
 
         if status_code == 200:
@@ -111,7 +117,7 @@ class Users:
 
         return {'statusCode': status_code, 'data': data}
 
-    def get_user_id(self, kwargs: dict):
+    def get_user_info(self, kwargs: dict):
 
         conditions = {'active': 1}
 
@@ -123,11 +129,14 @@ class Users:
         result_statement = self.db.select_statement(statement)
 
         if result_statement:
-            return result_statement[0]
+            status_code = 200
+            result = result_statement[0]
 
-        raise CustomError(
-            'The specified user does not exist.'
-        )
+        else:
+            status_code = 404
+            result = []
+
+        return {'statusCode': status_code, 'data': result}
 
     def insert_authenticated_user(self, data):
 
@@ -148,7 +157,7 @@ class Users:
             conditions.update({key: value})
 
         statement = select(
-            *self.exclude_columns(UserModel, ['password'])
+            *exclude_columns(UserModel, ['password'])
         ).filter_by(**conditions)
 
         result_statement = self.db.select_statement(statement)
@@ -159,29 +168,10 @@ class Users:
 
         return {'statusCode': status_code, 'data': result_statement}
 
-    def exclude_columns(
-        self, model, excluded: list, primary_key=False
-    ) -> list:
-
-        if excluded is None:
-            excluded = []
-
-        columns = []
-
-        for column in model.__table__.columns:
-
-            if primary_key and column.primary_key:
-                excluded.append(column.key)
-
-            if column.key not in excluded:
-                columns.append(column)
-
-        return columns
-
     def update_user(self, event):
 
         input_data = get_input_data(event)
-        user_id = input_data['user_id']
+        user_id = input_data.get('user_id', '')
 
         model_columns = get_model_columns(
             UserModel, exclude_primary_key=True,
@@ -203,9 +193,10 @@ class Users:
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
 
-        self.get_user_id(**{
-            'user_id': user_id
-        })
+        user_info = self.get_user_info({'user_id': user_id})
+
+        if not user_info['data']:
+            raise CustomError('El usuario no existe.')
 
         statement = update(UserModel).where(
             UserModel.user_id == user_id,
@@ -237,7 +228,6 @@ class Users:
         ]
 
         is_valid = self.tools.validate_input_data(values)
-
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
 
@@ -247,6 +237,7 @@ class Users:
             'client_id': os.getenv('CLIENT_ID')
         })
 
+        print(f'{response} ----> response')
         status_code = response['statusCode']
         data = response['data']
 
