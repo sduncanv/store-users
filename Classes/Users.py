@@ -15,6 +15,7 @@ from Users.Models.Users import UserModel
 class Users:
 
     def __init__(self) -> None:
+
         self.user_pool = os.getenv('USER_POOL')
         self.client_id = os.getenv('CLIENT_ID')
         self.cognito = AwsCognito()
@@ -53,7 +54,6 @@ class Users:
         result = self.cognito.create_user(input_data)
 
         status_code = result['statusCode']
-        print(f'{result} ----> result')
 
         if status_code == 200:
 
@@ -97,23 +97,23 @@ class Users:
 
         # Validate if the username exist
         user_id = self.get_user_info({'username': username})
-        if not user_id:
+
+        if user_id['statusCode'] == 404:
             raise CustomError('The specified user does not exist.')
 
         result = self.cognito.authenticate_user(data=data)
 
-        print(f'{result} ----> result')
         status_code = result['statusCode']
 
         if status_code == 200:
             self.insert_authenticated_user({
-                'user_id': user_id['user_id'],
+                'user_id': user_id['data']['user_id'],
                 'code': code
             })
             data = "User was confirmed."
 
         else:
-            data = result['message']
+            data = result['data']
 
         return {'statusCode': status_code, 'data': data}
 
@@ -171,7 +171,7 @@ class Users:
     def update_user(self, event):
 
         input_data = get_input_data(event)
-        user_id = input_data.get('user_id', '')
+        user_id = input_data.pop('user_id')
 
         model_columns = get_model_columns(
             UserModel, exclude_primary_key=True,
@@ -231,17 +231,21 @@ class Users:
         if not is_valid['is_valid']:
             raise CustomError(is_valid['data'][0])
 
+        user_info = self.get_user_info({'username': username})
+
+        if not user_info['data']:
+            raise CustomError('El usuario no existe.')
+
         response = self.cognito.get_token_by_user({
             'username': username,
             'password': password,
             'client_id': os.getenv('CLIENT_ID')
         })
 
-        print(f'{response} ----> response')
         status_code = response['statusCode']
         data = response['data']
 
         if status_code != 200:
-            raise CustomError(response['data'])
+            raise CustomError(data)
 
         return {'statusCode': status_code, 'data': data}

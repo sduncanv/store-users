@@ -2,7 +2,7 @@ service: store-users
 frameworkVersion: '3'
 
 plugins:
-  - serverless-offline
+  # - serverless-offline
   - serverless-python-requirements
 
 useDotenv: true
@@ -15,6 +15,9 @@ package:
     - "Models/**"
 
 custom:
+  # serverless-offline:
+  #   httpPort: 3003
+
   globalTimeOut: 30
 
   cors:
@@ -80,6 +83,7 @@ functions:
   Users:
     name: Users
     handler: handlers/UsersHandler.users
+    timeout: ${self:custom.globalTimeOut}
     events:
       - http:
           path: /user
@@ -97,6 +101,7 @@ functions:
   AuthenticateUsers:
     name: AuthenticateUsers
     handler: handlers/UsersHandler.authenticate_user
+    timeout: ${self:custom.globalTimeOut}
     events:
       - http:
           path: /authenticate_user
@@ -106,6 +111,7 @@ functions:
   Login:
     name: Login
     handler: handlers/UsersHandler.login
+    timeout: ${self:custom.globalTimeOut}
     events:
       - http:
           path: /login
