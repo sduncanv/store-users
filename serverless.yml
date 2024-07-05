@@ -2,7 +2,7 @@ service: store-app
 frameworkVersion: '3'
 
 plugins:
-  # - serverless-offline
+  - serverless-offline
   - serverless-python-requirements
 
 useDotenv: true
@@ -15,8 +15,8 @@ package:
     - "Models/**"
 
 custom:
-  # serverless-offline:
-  #   httpPort: 3003
+  serverless-offline:
+    httpPort: 3003
 
   globalTimeOut: 30
 

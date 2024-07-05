@@ -2,7 +2,8 @@ import os
 from sqlalchemy import select, insert, update
 from hashlib import sha256
 
-from Tools.Database.Conn import Database
+# from Tools.Database.Conn import Database
+from Users.Classes.Conn import Database
 from Tools.Utils.Helpers import get_input_data
 from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
