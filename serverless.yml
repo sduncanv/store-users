@@ -1,4 +1,4 @@
-service: store-users
+service: store-app
 frameworkVersion: '3'
 
 plugins:
