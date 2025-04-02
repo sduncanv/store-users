@@ -2,15 +2,15 @@ import os
 from sqlalchemy import select, insert, update
 from hashlib import sha256
 
-# from Tools.Database.Conn import Database
-from Users.Classes.Conn import Database
+from Tools.Database.Conn import Database
+# from Users.Classes.Conn import Database
 from Tools.Utils.Helpers import get_input_data
 from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
 from Tools.Utils.QueryTools import get_model_columns, exclude_columns
-from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
-from Users.Models.Users import UserModel
+from Models.AuthenticatedUsers import AuthenticatedUsersModel
+from Models.Users import UserModel
 
 
 class Users:
@@ -20,7 +20,12 @@ class Users:
         self.user_pool = os.getenv('USER_POOL')
         self.client_id = os.getenv('CLIENT_ID')
         self.cognito = AwsCognito()
-        self.db = Database()
+        self.db = Database(
+            db=os.getenv('DB_NAME'),
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD')
+        )
         self.tools = BasicTools()
 
     def create_user(self, event) -> dict:
@@ -52,9 +57,10 @@ class Users:
             raise CustomError('El username ya está registrado.')
 
         input_data.update({'client_id': self.client_id})
-        result = self.cognito.create_user(input_data)
+        # result = self.cognito.create_user(input_data)
 
-        status_code = result['statusCode']
+        # status_code = result['statusCode']
+        status_code = 200
 
         if status_code == 200:
 
@@ -74,7 +80,8 @@ class Users:
             data = result_statement
 
         else:
-            raise CustomError(result['data'])
+            # raise CustomError(result['data'])
+            raise CustomError("Error creating user in Cognito.")
 
         return {'statusCode': status_code, 'data': data}
 
@@ -176,7 +183,7 @@ class Users:
 
         model_columns = get_model_columns(
             UserModel, exclude_primary_key=True,
-            get_attributes=True
+            return_attributes=True
         )
 
         list_validation = []
