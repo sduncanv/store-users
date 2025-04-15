@@ -93,6 +93,6 @@ if __name__ == "__main__":
         packages=[
             'Users.Classes', 'Users.Models'
         ],
-        python_requires=">=3.8",
+        python_requires=">=3.9",
         install_requires=requirements
     )

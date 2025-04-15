@@ -1,30 +1,42 @@
 import os
-from sqlalchemy import select, insert, update
+import hmac
+import hashlib
+import base64
+from sqlalchemy import select, insert, update, or_
 from hashlib import sha256
 
 from Tools.Database.Conn import Database
-# from Users.Classes.Conn import Database
 from Tools.Utils.Helpers import get_input_data
 from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
 from Tools.Utils.QueryTools import get_model_columns, exclude_columns
-from Models.AuthenticatedUsers import AuthenticatedUsersModel
-from Models.Users import UserModel
+from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
+from Users.Models.Users import UserModel
+
+
+def get_secret_hash(username: str, client_id: str, client_secret: str) -> str:
+    message = username + client_id
+    dig = hmac.new(
+        client_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    return base64.b64encode(dig).decode()
 
 
 class Users:
 
     def __init__(self) -> None:
 
-        self.user_pool = os.getenv('USER_POOL')
         self.client_id = os.getenv('CLIENT_ID')
+        self.secret_hash = os.getenv('SECRET_HASH')
         self.cognito = AwsCognito()
         self.db = Database(
-            db=os.getenv('DB_NAME'),
-            host=os.getenv('DB_HOST'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD')
+            db=os.getenv('DATABASE_NAME'),
+            host=os.getenv('DATABASE_HOST'),
+            user=os.getenv('DATABASE_USER'),
+            password=os.getenv('DATABASE_PASSWORD')
         )
         self.tools = BasicTools()
 
@@ -35,32 +47,36 @@ class Users:
         username = input_data.get('username', '')
         password = input_data.get('password', '')
         email = input_data.get('email', '')
-        name = input_data.get('name', '')
-        first_lastname = input_data.get('first_lastname', '')
 
         values = [
             self.tools.params('username', str, username),
             self.tools.params('password', str, password),
             self.tools.params('email', str, email),
-            self.tools.params('name', str, name),
-            self.tools.params('first_lastname', str, first_lastname)
         ]
 
         is_valid = self.tools.validate_input_data(values)
         if not is_valid['is_valid']:
-            raise CustomError(is_valid['data'][0])
+            raise CustomError(is_valid['errors'][0])
 
         # Validate if the username exist
-        user_exists = self.get_user_info({'username': username})
+        user_exists = self.get_user_info({
+            'email': email, 'username': username
+        })
 
-        if user_exists['data']:
-            raise CustomError('El username ya está registrado.')
+        if user_exists['statusCode'] == 200:
+            raise CustomError('Username or email already exists.')
 
-        input_data.update({'client_id': self.client_id})
-        # result = self.cognito.create_user(input_data)
+        secret_hash = get_secret_hash(
+            username, self.client_id, self.secret_hash
+        )
 
-        # status_code = result['statusCode']
-        status_code = 200
+        input_data.update({
+            'client_id': self.client_id,
+            'secret_hash': secret_hash
+        })
+
+        result = self.cognito.create_user(input_data)
+        status_code = result['statusCode']
 
         if status_code == 200:
 
@@ -69,19 +85,17 @@ class Users:
             statement = insert(UserModel).values(
                 username=username,
                 password=password,
-                email=email,
-                name=name,
-                first_lastname=first_lastname
+                email=email
             )
 
             result_statement = self.db.insert_statement(statement)
-
             result_statement.update({"message": "User was created."})
             data = result_statement
 
         else:
-            # raise CustomError(result['data'])
-            raise CustomError("Error creating user in Cognito.")
+            raise CustomError(
+                message=result['data'], status_code=result['statusCode']
+            )
 
         return {'statusCode': status_code, 'data': data}
 
@@ -99,9 +113,15 @@ class Users:
 
         is_valid = self.tools.validate_input_data(values)
         if not is_valid['is_valid']:
-            raise CustomError(is_valid['data'][0])
+            raise CustomError(is_valid['errors'][0])
 
-        data.update({'client_id': self.client_id})
+        secret_hash = get_secret_hash(
+            username, self.client_id, self.secret_hash
+        )
+
+        data.update({
+            'client_id': self.client_id, 'secret_hash': secret_hash
+        })
 
         # Validate if the username exist
         user_id = self.get_user_info({'username': username})
@@ -109,14 +129,23 @@ class Users:
         if user_id['statusCode'] == 404:
             raise CustomError('The specified user does not exist.')
 
+        autenticated = self.db.select_statement(
+            select(AuthenticatedUsersModel).where(
+                AuthenticatedUsersModel.user_id == user_id['data']['user_id'],
+                AuthenticatedUsersModel.is_authenticated == 1
+            )
+        )
+
+        if autenticated:
+            raise CustomError('The user is already authenticated.')
+
         result = self.cognito.authenticate_user(data=data)
 
         status_code = result['statusCode']
 
         if status_code == 200:
             self.insert_authenticated_user({
-                'user_id': user_id['data']['user_id'],
-                'code': code
+                'user_id': user_id['data']['user_id'], 'code': code
             })
             data = "User was confirmed."
 
@@ -127,12 +156,14 @@ class Users:
 
     def get_user_info(self, kwargs: dict):
 
-        conditions = {'active': 1}
+        conditions = []
 
         for key, value in kwargs.items():
-            conditions.update({key: value})
+            conditions.append(getattr(UserModel, key) == value)
 
-        statement = select(UserModel).filter_by(**conditions)
+        statement = select(UserModel).where(
+            UserModel.active == 1, or_(*conditions)
+        )
 
         result_statement = self.db.select_statement(statement)
 
@@ -199,7 +230,7 @@ class Users:
 
         is_valid = self.tools.validate_input_data(list_validation)
         if not is_valid['is_valid']:
-            raise CustomError(is_valid['data'][0])
+            raise CustomError(is_valid['errors'][0])
 
         user_info = self.get_user_info({'user_id': user_id})
 
@@ -237,23 +268,32 @@ class Users:
 
         is_valid = self.tools.validate_input_data(values)
         if not is_valid['is_valid']:
-            raise CustomError(is_valid['data'][0])
+            raise CustomError(is_valid['errors'][0])
 
         user_info = self.get_user_info({'username': username})
 
         if not user_info['data']:
             raise CustomError('El usuario no existe.')
 
+        secret_hash = get_secret_hash(
+            username, self.client_id, self.secret_hash
+        )
+
         response = self.cognito.get_token_by_user({
             'username': username,
             'password': password,
-            'client_id': os.getenv('CLIENT_ID')
+            'secret_hash': secret_hash,
+            'client_id': self.client_id
         })
 
-        status_code = response['statusCode']
         data = response['data']
 
-        if status_code != 200:
-            raise CustomError(data)
+        if response['statusCode'] == 400:
+            raise CustomError(
+                message=data, status_code=response['statusCode']
+            )
+
+        if response.get('data', '').get('AccessToken', ''):
+            status_code = 200
 
         return {'statusCode': status_code, 'data': data}

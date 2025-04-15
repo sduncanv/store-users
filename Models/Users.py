@@ -9,10 +9,10 @@ class UserModel(Base):
     __tablename__ = 'users'
 
     user_id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
+    name = Column(String(100))
     username = Column(String(100), nullable=False)
     password = Column(String(250), nullable=False)
-    first_lastname = Column(String(100), nullable=False)
+    first_lastname = Column(String(100))
     second_lastname = Column(String(100))
     phone_number = Column(String(50))
     email = Column(String(250), nullable=False)
