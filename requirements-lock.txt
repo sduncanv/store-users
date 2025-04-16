@@ -1,2 +1,0 @@
-git+https://TOKEN@github.com/USERNAME/store-tools.git@refactorv1#egg=store-tools
-git+https://TOKEN@github.com/USERNAME/store-users.git@master#egg=store-users

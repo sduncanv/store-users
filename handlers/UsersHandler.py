@@ -5,39 +5,39 @@ from Tools.Utils.Helpers import exception_decorator
 @exception_decorator
 def users(event, context):
 
+    method = event['httpMethod']
     users_class = Users()
 
-    methods = {
+    functions = {
         "POST": users_class.create_user,
         "GET": users_class.get_user,
         "PUT": users_class.update_user,
     }
 
-    executed = methods.get(event['httpMethod'])
-    return executed(event)
+    return functions[method](event)
 
 
 @exception_decorator
 def authenticate_user(event, context):
 
+    method = event['httpMethod']
     users_class = Users()
 
-    methods = {
+    functions = {
         "POST": users_class.authenticate_user
     }
 
-    executed = methods.get(event['httpMethod'])
-    return executed(event)
+    return functions[method](event)
 
 
 @exception_decorator
 def login(event, context):
 
+    method = event['httpMethod']
     users_class = Users()
 
-    methods = {
+    functions = {
         "POST": users_class.login
     }
 
-    executed = methods.get(event['httpMethod'])
-    return executed(event)
+    return functions[method](event)
