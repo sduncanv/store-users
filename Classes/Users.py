@@ -11,8 +11,8 @@ from Tools.Classes.AwsCognito import AwsCognito
 from Tools.Classes.BasicTools import BasicTools
 from Tools.Classes.CustomError import CustomError
 from Tools.Utils.QueryTools import get_model_columns, exclude_columns
-from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
-from Users.Models.Users import UserModel
+from Models.AuthenticatedUsers import AuthenticatedUsersModel
+from Models.Users import UserModel
 
 
 def get_secret_hash(username: str, client_id: str, client_secret: str) -> str:

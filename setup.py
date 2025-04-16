@@ -1,98 +1,71 @@
-import setuptools
-
-
-def get_environment():
-    environment = {}
-    env_filename = ".env"
-
-    with open(env_filename, mode="r") as f:
-        lines = f.readlines()
-        environment = {
-            line.strip().split('=')[0]: line.strip().split('=')[1]
-            for line in lines
-        }
-
-    return environment
+from setuptools import setup
 
 
 def get_requirements(filename="requirements.txt", write=False):
 
-    # Defining placeholders
-    env_vars = ['USERNAME', 'PASSWORD', 'TOKEN']
-    indexes = []
-    requirement_list = []
-    requirements_lock = 'requirements-lock.txt'
+    repository_vars = ['REPOSITORY_USER', 'TOKEN']
+    requirement = []
 
-    # Getting environment variables
-    environment = get_environment()
-    repo_user = environment.get('REPO_USER')
-    repo_pass = environment.get('REPO_PASS')
-    repo_token = environment.get('TOKEN')
+    variables = get_variables()
 
-    with open(requirements_lock, mode="r", encoding="utf-8") as req_lock:
+    with open('locked-requirements.txt', mode="r", encoding="utf-8") as lf:
+        lines = lf.readlines()
 
+    processed_lines = []
+    for line in lines:
+        processed_line = line
+
+        if any(var in line for var in repository_vars):
+            processed_line = line.replace(
+                'REPOSITORY_USER', variables.get('REPOSITORY_USER')
+            ).replace('TOKEN', variables.get('TOKEN'))
+
+            if not write:
+                if '#egg=' in processed_line:
+                    parts = processed_line.split('#egg=')
+                    processed_line = f'{parts[1].strip()} @ {parts[0].strip()}'
+
+        processed_lines.append(processed_line)
+
+    if write:
         with open(filename, 'w+') as f:
+            f.writelines(processed_lines)
 
-            lines = req_lock.readlines()
-            # Extracting indexes from lines containing placeholders
-            indexes = [i for i, l in enumerate(lines)
-                       for var in env_vars if var in l]
+    return requirement
 
-            f.seek(0)  # Setting file start
 
-            for index, line in enumerate(lines):
-                # Setting initial line content
-                content = line
+def get_variables():
 
-                if index in set(indexes):
-                    # Replacing content placeholders with environment variables
-                    content = line.replace(
-                        'USERNAME', repo_user
-                    ).replace(
-                        'PASSWORD', repo_pass
-                    ).replace(
-                        'TOKEN', repo_token
-                    )
+    environment = {}
 
-                    if not write:
-                        splitted = content.split('#egg=')
-                        content = (
-                            f'{splitted[1].strip()} @ {splitted[0].strip()}')
+    with open(".env", mode="r") as f:
+        lines = f.readlines()
+        environment = dict(line.strip().split('=') for line in lines)
 
-                # Rewriting line
-                if write:
-                    f.write(content)
-
-                requirement_list.append(content)  # Storing requirement
-
-    return requirement_list
+    return environment
 
 
 if __name__ == "__main__":
 
     requirements = get_requirements()
 
-    setuptools.setup(
+    setup(
         name="store-users",
-        version="0.0.1",
+        version="1.0.0",
+        description="This repository represents the logic of the users.",
         author="Samuel Duncan",
         author_email="srduncanv1217@gmail.com",
         url="https://github.com/sduncanv/store-users.git",
-        project_urls={
-            "Bug Tracker": "https://github.com/sduncanv/store-users.git",
-        },
-        classifiers=[
-            "Programming Language :: Python :: 3",
-            "License :: Other/Proprietary License",
-            "Operating System :: OS Independent",
-        ],
-        package_dir={
-            'Users.Classes': 'Classes',
-            'Users.Models': 'Models'
-        },
         packages=[
             'Users.Classes', 'Users.Models'
         ],
+        package_dir={
+            'Users.Classes': 'Classes', 'Users.Models': 'Models'
+        },
+        install_requires=requirements,
         python_requires=">=3.9",
-        install_requires=requirements
+        classifiers=[
+            "Programming Language :: Python :: 3.9",
+            "License :: OSI Approved :: MIT License",
+        ],
     )
