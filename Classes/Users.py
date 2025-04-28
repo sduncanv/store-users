@@ -47,11 +47,13 @@ class Users:
         username = input_data.get('username', '')
         password = input_data.get('password', '')
         email = input_data.get('email', '')
+        phone_number = input_data.get('phone_number', '')
 
         values = [
             self.tools.params('username', str, username),
             self.tools.params('password', str, password),
             self.tools.params('email', str, email),
+            self.tools.params('phone_number', str, phone_number)
         ]
 
         is_valid = self.tools.validate_input_data(values)
@@ -85,7 +87,8 @@ class Users:
             statement = insert(UserModel).values(
                 username=username,
                 password=password,
-                email=email
+                email=email,
+                phone_number=phone_number,
             )
 
             result_statement = self.db.insert_statement(statement)
