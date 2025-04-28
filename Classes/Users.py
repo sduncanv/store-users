@@ -2,7 +2,10 @@ import os
 import hmac
 import hashlib
 import base64
-from sqlalchemy import select, insert, update, or_
+from sqlalchemy import select, insert, update, or_, and_
+import cloudinary
+import cloudinary.uploader
+from cloudinary import CloudinaryImage
 from hashlib import sha256
 
 from Tools.Database.Conn import Database
@@ -13,6 +16,7 @@ from Tools.Classes.CustomError import CustomError
 from Tools.Utils.QueryTools import get_model_columns, exclude_columns
 from Users.Models.AuthenticatedUsers import AuthenticatedUsersModel
 from Users.Models.Users import UserModel
+from Users.Models.UsersFiles import UsersFilesModel
 
 
 def get_secret_hash(username: str, client_id: str, client_secret: str) -> str:
@@ -48,6 +52,7 @@ class Users:
         password = input_data.get('password', '')
         email = input_data.get('email', '')
         phone_number = input_data.get('phone_number', '')
+        file = input_data.get('file', '')
 
         values = [
             self.tools.params('username', str, username),
@@ -55,6 +60,17 @@ class Users:
             self.tools.params('email', str, email),
             self.tools.params('phone_number', str, phone_number)
         ]
+
+        if file:
+
+            image = file.get('image', '')
+            filename = file.get('filename', '')
+
+            values.extend([
+                self.tools.params('file', dict, file),
+                self.tools.params('image', str, image),
+                self.tools.params('filename', str, filename),
+            ])
 
         is_valid = self.tools.validate_input_data(values)
         if not is_valid['is_valid']:
@@ -92,8 +108,27 @@ class Users:
             )
 
             result_statement = self.db.insert_statement(statement)
-            result_statement.update({"message": "User was created."})
-            data = result_statement
+
+            data_file = {
+                'user_id': result_statement['user_id'],
+                'model': UsersFilesModel
+            }
+
+            if file:
+                data_file.update({
+                    'image': image,
+                    'filename': filename
+                })
+
+            # This line is for uploading images to Cloudinary:
+            result_insert = self.upload_image(**data_file)
+
+            if result_insert['statusCode'] == 200:
+                result_statement.update({"message": "User was created."})
+                data = result_statement
+
+            else:
+                raise CustomError('Error al cargar imagen de usuario.')
 
         else:
             raise CustomError(
@@ -199,7 +234,14 @@ class Users:
             conditions.update({key: value})
 
         statement = select(
-            *exclude_columns(UserModel, ['password'])
+            *exclude_columns(UserModel, ['password']),
+            UsersFilesModel.url
+        ).join(
+            UsersFilesModel,
+            and_(
+                UsersFilesModel.user_id == UserModel.user_id,
+                UsersFilesModel.active == 1
+            )
         ).filter_by(**conditions)
 
         result_statement = self.db.select_statement(statement)
@@ -298,5 +340,42 @@ class Users:
 
         if response.get('data', '').get('AccessToken', ''):
             status_code = 200
+
+        return {'statusCode': status_code, 'data': data}
+
+    def upload_image(self, **data):
+
+        try:
+            cloudinary.config(
+                cloud_name=os.getenv('CLOUD_NAME'),
+                api_key=os.getenv('API_KEY'),
+                api_secret=os.getenv('API_SECRET'),
+                secure=True
+            )
+
+            base64_image = f"data:image/jpg;base64,{data['image']}"
+
+            cloudinary.uploader.upload(
+                base64_image,
+                public_id=data['filename'],
+                unique_filename=False,
+                overwrite=True
+            )
+
+            url = CloudinaryImage(data['filename']).build_url()
+
+            result = self.db.insert_statement(
+                insert(data['model']).values(
+                    user_id=data['user_id'],
+                    url=url
+                )
+            )
+
+            status_code = 200
+            data = result
+
+        except cloudinary.exceptions.Error as e:
+            status_code = 400
+            data = str(e)
 
         return {'statusCode': status_code, 'data': data}
